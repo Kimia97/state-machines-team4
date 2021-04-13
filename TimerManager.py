@@ -45,18 +45,20 @@ class TimerLogic:
 
     # TODO define functions as transition effetcs
     def report_status(self): 
-        if (self.name): 
-            self.component.mqtt_client.publish(MQTT_TOPIC_OUTPUT, self.duration)
-        else:
-            pass
+        if (self.name):
+            remaining_time = self.stm.get_timer("t")
+            out = "STATUS: " + self.name + " " + str(remaining_time)
+            print(out)
+            self.component.mqtt_client.publish(MQTT_TOPIC_OUTPUT, out, qos=2)
 
     def started(self):
-        self.stm.start_timer(self.name, self.duration)
-        print("Started timer with name: " + self.name)
+        self.stm.start_timer('t', self.duration)
 
     def timer_completed(self):
         out = self.name + " completed"
+        print(out)
         self.component.mqtt_client.publish(MQTT_TOPIC_OUTPUT, out)
+        self.stm.terminate()
 
 
 class TimerManagerComponent:
@@ -107,20 +109,19 @@ class TimerManagerComponent:
             timer_name = payload.get('name')
             duration = payload.get('duration')
             timer_stm = TimerLogic(timer_name, duration, self)
+            print("ADDING NEW TIMER: ", timer_name, duration)
             self.stm_driver.add_machine(timer_stm.stm)
 
         elif (command == "status_all_timers"):
-            self.stm_driver.print_status()
-            # Legg til stm.send!
+            print("STATUS ALL TIMERS")
+            for stm_id in self.stm_driver._stms_by_id:
+                timer_name = stm_id
+                self.stm_driver.send("report", timer_name)
         
         elif (command == "status_single_timer"):
-            self.stm_driver.print_status()
-            # Legg til stm.send!
-            
-            # timer_name = payload.get('name')
-            # self.stm_driver.send("report", timer_name)
-            # self.stm_driver._get_timer(timer_name, timer_name) #er id for stm navn? 
-
+            timer_name = payload.get('name')
+            print("STATUS FOR", timer_name)
+            self.stm_driver.send("report", timer_name) 
 
     def __init__(self):
         """
